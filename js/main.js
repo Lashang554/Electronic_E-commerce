@@ -2,7 +2,6 @@
     "use strict";
 
     var dummyApiBase = "https://dummyjson.com/products";
-    var shopCategories = ["smartphones", "laptops", "tablets", "mobile-accessories"];
     var products = {
         "product-3": {
             name: "Apple iPad Mini G2356",
@@ -253,6 +252,7 @@
                 price: formatPrice(price),
                 oldPrice: formatPrice(oldPrice),
                 rawPrice: price,
+                discount: Number(product.discountPercentage || 0),
                 image: product.thumbnail || (product.images && product.images[0]) || "img/product-3.png",
                 gallery: product.images && product.images.length ? product.images : [product.thumbnail],
                 sku: product.sku || "N/A",
@@ -271,6 +271,7 @@
 
         product.id = product.id || getProductIdFromImage(product.image);
         product.rawPrice = parsePrice(product.price);
+        product.discount = product.discount || 0;
         product.categorySlug = String(product.category || "").toLowerCase().replace(/\s+/g, "-");
         product.gallery = product.gallery || [product.image];
         product.reviews = product.reviews || [];
@@ -302,13 +303,9 @@
     }
 
     function loadShopProducts() {
-        return Promise.all(shopCategories.map(function (category) {
-            return fetchJson(dummyApiBase + "/category/" + category + "?limit=0");
-        })).then(function (responses) {
-            return responses.reduce(function (items, response) {
-                return items.concat(response.products || []);
-            }, []);
-        }).then(function (items) {
+        return fetchJson(dummyApiBase + "?limit=0").then(function (response) {
+            var items = response.products || [];
+
             if (!items.length) {
                 throw new Error("No API products returned");
             }
@@ -345,17 +342,20 @@
     }
 
     function productCardMarkup(product) {
+        var name = escapeHtml(product.name);
+        var category = escapeHtml(product.category);
+
         return '<div class="col-lg-4">' +
             '<div class="product-item rounded wow fadeInUp" data-product-id="' + product.id + '">' +
             '<div class="product-item-inner border rounded">' +
             '<div class="product-item-inner-item">' +
-            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + product.name + '">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + name + '">' +
             '<div class="product-new">New</div>' +
             '<div class="product-details"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x"></i></a></div>' +
             '</div>' +
             '<div class="text-center rounded-bottom p-4">' +
-            '<a href="' + productUrl(product.id) + '" class="d-block mb-2">' + product.category + '</a>' +
-            '<a href="' + productUrl(product.id) + '" class="d-block h4">' + product.name + '</a>' +
+            '<a href="' + productUrl(product.id) + '" class="d-block mb-2">' + category + '</a>' +
+            '<a href="' + productUrl(product.id) + '" class="d-block h4">' + name + '</a>' +
             '<del class="me-2 fs-5">' + product.oldPrice + '</del>' +
             '<span class="text-primary fs-5">' + product.price + '</span>' +
             '</div></div>' +
@@ -370,32 +370,11 @@
     }
 
     function productListMarkup(product) {
-        return '<div class="col-lg-6">' +
-            '<div class="products-mini-item border" data-product-id="' + product.id + '">' +
-            '<div class="row g-0">' +
-            '<div class="col-5"><div class="products-mini-img border-end h-100">' +
-            '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + product.name + '">' +
-            '<div class="products-mini-icon rounded-circle bg-primary"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x text-white"></i></a></div>' +
-            '</div></div>' +
-            '<div class="col-7"><div class="products-mini-content p-3">' +
-            '<a href="' + productUrl(product.id) + '" class="d-block mb-2">' + product.category + '</a>' +
-            '<a href="' + productUrl(product.id) + '" class="d-block h4">' + product.name + '</a>' +
-            '<del class="me-2 fs-5">' + product.oldPrice + '</del>' +
-            '<span class="text-primary fs-5">' + product.price + '</span>' +
-            '</div></div></div>' +
-            '<div class="products-mini-add border p-3">' +
-            '<a href="#" class="btn btn-primary border-secondary rounded-pill py-2 px-4"><i class="fas fa-shopping-cart me-2"></i> Add To Cart</a>' +
-            '<div class="d-flex">' +
-            '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-3"><span class="rounded-circle btn-sm-square border"><i class="fas fa-random"></i></span></a>' +
-            '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-0"><span class="rounded-circle btn-sm-square border"><i class="fas fa-heart"></i></span></a>' +
-            '</div></div></div></div>';
-    }
-
-    function productMiniMarkup(product) {
         var name = escapeHtml(product.name);
         var category = escapeHtml(product.category);
 
-        return '<div class="productImg-item products-mini-item border" data-product-id="' + product.id + '">' +
+        return '<div class="col-lg-6">' +
+            '<div class="products-mini-item border" data-product-id="' + product.id + '">' +
             '<div class="row g-0">' +
             '<div class="col-5"><div class="products-mini-img border-end h-100">' +
             '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + name + '">' +
@@ -412,7 +391,172 @@
             '<div class="d-flex">' +
             '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-3"><span class="rounded-circle btn-sm-square border"><i class="fas fa-random"></i></span></a>' +
             '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-0"><span class="rounded-circle btn-sm-square border"><i class="fas fa-heart"></i></span></a>' +
+            '</div></div></div></div>';
+    }
+
+    function productMiniMarkup(product) {
+        var name = escapeHtml(product.name);
+        var category = escapeHtml(product.category);
+        var discount = Math.round(product.discount || 0);
+        var badge = discount > 0 ? '<span class="badge bg-secondary mb-2">' + discount + '% off</span>' : "";
+
+        return '<div class="productImg-item products-mini-item border" data-product-id="' + product.id + '">' +
+            '<div class="row g-0">' +
+            '<div class="col-5"><div class="products-mini-img border-end h-100">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + name + '">' +
+            '<div class="products-mini-icon rounded-circle bg-primary"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x text-white"></i></a></div>' +
+            '</div></div>' +
+            '<div class="col-7"><div class="products-mini-content p-3">' +
+            badge +
+            '<a href="' + productUrl(product.id) + '" class="d-block mb-2">' + category + '</a>' +
+            '<a href="' + productUrl(product.id) + '" class="d-block h4">' + name + '</a>' +
+            '<del class="me-2 fs-5">' + product.oldPrice + '</del>' +
+            '<span class="text-primary fs-5">' + product.price + '</span>' +
+            '</div></div></div>' +
+            '<div class="products-mini-add border p-3">' +
+            '<a href="#" class="btn btn-primary border-secondary rounded-pill py-2 px-4"><i class="fas fa-shopping-cart me-2"></i> Add To Cart</a>' +
+            '<div class="d-flex">' +
+            '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-3"><span class="rounded-circle btn-sm-square border"><i class="fas fa-random"></i></span></a>' +
+            '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-0"><span class="rounded-circle btn-sm-square border"><i class="fas fa-heart"></i></span></a>' +
             '</div></div></div>';
+    }
+
+    function homeProductCardMarkup(product) {
+        var name = escapeHtml(product.name);
+        var category = escapeHtml(product.category);
+        var discount = Math.round(product.discount || 0);
+        var badge = discount > 0
+            ? '<div class="product-sale">' + discount + '% off</div>'
+            : '<div class="product-new">New</div>';
+
+        return '<div class="col-md-6 col-lg-4 col-xl-3">' +
+            '<div class="product-item rounded wow fadeInUp" data-product-id="' + product.id + '">' +
+            '<div class="product-item-inner border rounded">' +
+            '<div class="product-item-inner-item">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + name + '">' +
+            badge +
+            '<div class="product-details"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x"></i></a></div>' +
+            '</div>' +
+            '<div class="text-center rounded-bottom p-4">' +
+            '<a href="' + productUrl(product.id) + '" class="d-block mb-2">' + category + '</a>' +
+            '<a href="' + productUrl(product.id) + '" class="d-block h4">' + name + '</a>' +
+            '<del class="me-2 fs-5">' + product.oldPrice + '</del>' +
+            '<span class="text-primary fs-5">' + product.price + '</span>' +
+            '</div></div>' +
+            '<div class="product-item-add border border-top-0 rounded-bottom text-center p-4 pt-0">' +
+            '<a href="#" class="btn btn-primary border-secondary rounded-pill py-2 px-4 mb-4"><i class="fas fa-shopping-cart me-2"></i> Add To Cart</a>' +
+            '<div class="d-flex justify-content-between align-items-center">' +
+            '<div class="d-flex">' + starMarkup(product.rating).replace(/text-secondary/g, "text-primary") + '</div>' +
+            '<div class="d-flex">' +
+            '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-3"><span class="rounded-circle btn-sm-square border"><i class="fas fa-random"></i></span></a>' +
+            '<a href="#" class="text-primary d-flex align-items-center justify-content-center me-0"><span class="rounded-circle btn-sm-square border"><i class="fas fa-heart"></i></span></a>' +
+            '</div></div></div></div></div>';
+    }
+
+    function bestsellerCardMarkup(product) {
+        return '<div class="col-md-6 col-lg-6 col-xl-4 wow fadeInUp">' + productMiniMarkup(product) + '</div>';
+    }
+
+    function getDiscountInfo(product) {
+        var price = Number(product.rawPrice || parsePrice(product.price));
+        var oldPrice = Number(parsePrice(product.oldPrice));
+
+        if (!oldPrice || oldPrice <= price) {
+            oldPrice = price * 1.2;
+        }
+
+        var saveAmount = Math.max(oldPrice - price, 0);
+        var discountPercent = oldPrice ? Math.round((saveAmount / oldPrice) * 100) : 0;
+
+        return {
+            oldPrice: oldPrice,
+            price: price,
+            saveAmount: saveAmount,
+            discountPercent: discountPercent
+        };
+    }
+
+    function selectFeaturedProducts(productList, count) {
+        return productList
+            .slice()
+            .sort(function (first, second) {
+                return getDiscountInfo(second).discountPercent - getDiscountInfo(first).discountPercent;
+            })
+            .slice(0, count);
+    }
+
+    function renderHomeHighlights(productList) {
+        if (!productList || !productList.length) {
+            return;
+        }
+
+        var featured = selectFeaturedProducts(productList, 4);
+        var headerProducts = featured.slice(0, 2);
+        var specialOffer = featured[0];
+        var saleOffer = featured[1] || featured[0];
+
+        $(".header-carousel .header-carousel-item").each(function (index) {
+            var product = headerProducts[index] || headerProducts[0];
+            if (!product) {
+                return;
+            }
+
+            var discount = getDiscountInfo(product);
+            var item = $(this);
+            item.find(".carousel-img img").attr({
+                src: product.image,
+                alt: product.name
+            });
+            item.find("h4").first().text("Save Up To A " + formatPrice(discount.saveAmount));
+            item.find("h1").first().text("On Selected " + product.category + " Deals");
+            item.find("p.text-dark").first().text(product.description || "Terms and Condition Apply");
+            item.find("a.btn").first().attr("href", productUrl(product.id));
+        });
+
+        if (specialOffer) {
+            var specialDiscount = getDiscountInfo(specialOffer);
+            var banner = $(".carousel-header-banner");
+            banner.find("> img").attr({
+                src: specialOffer.image,
+                alt: specialOffer.name
+            });
+            banner.find(".carousel-banner-offer .bg-primary").first().text("Save " + formatPrice(specialDiscount.saveAmount));
+            banner.find(".carousel-banner-offer .text-primary").last().text("Special Offer");
+            banner.find(".carousel-banner-content a.d-block").first().text(specialOffer.category).attr("href", productUrl(specialOffer.id));
+            banner.find(".carousel-banner-content a.d-block.text-white").first().html(escapeHtml(specialOffer.name)).attr("href", productUrl(specialOffer.id));
+            banner.find(".carousel-banner-content del").first().text(specialOffer.oldPrice);
+            banner.find(".carousel-banner-content span.text-primary").first().text(specialOffer.price);
+            banner.find(".carousel-banner .btn").first().attr("href", productUrl(specialOffer.id));
+        }
+
+        $(".container-fluid.bg-light.py-5 .row.g-4 > .col-lg-6").each(function (index) {
+            var product = featured[index] || featured[0];
+            if (!product) {
+                return;
+            }
+
+            var discount = getDiscountInfo(product);
+            var card = $(this).find("a.d-flex").first();
+            card.attr("href", productUrl(product.id));
+            card.find("p.text-muted").first().text("Best deal on " + product.category + " for you!");
+            card.find("h3.text-primary").first().text(product.name);
+            card.find("h1.display-3").first().html(discount.discountPercent + "% <span class=\"text-primary fw-normal\">Off</span>");
+            card.find("img").first().attr({
+                src: product.image,
+                alt: product.name
+            });
+        });
+
+        if (saleOffer) {
+            var saleDiscount = getDiscountInfo(saleOffer);
+            var saleBanner = $("img[src*='product-banner-2.jpg']").first().closest("a");
+            if (saleBanner.length) {
+                saleBanner.attr("href", productUrl(saleOffer.id));
+                saleBanner.find("h2.display-2").first().text("SALE");
+                saleBanner.find("h4.display-5").first().text("Get UP To " + saleDiscount.discountPercent + "% Off");
+                saleBanner.find(".btn").first().attr("href", productUrl(saleOffer.id));
+            }
+        }
     }
 
     function renderShopProducts(productList) {
@@ -433,6 +577,67 @@
         });
 
         grid.append(pagination);
+    }
+
+    function renderHomeProductTabs(productList) {
+        var sections = [
+            {
+                selector: "#tab-1 .row.g-4",
+                products: productList.slice(0, 12)
+            },
+            {
+                selector: "#tab-2 .row.g-4",
+                products: productList.slice().sort(function (a, b) {
+                    return Number(b.id) - Number(a.id);
+                }).slice(0, 8)
+            },
+            {
+                selector: "#tab-3 .row.g-4",
+                products: productList.slice().sort(function (a, b) {
+                    return b.rating - a.rating;
+                }).slice(0, 8)
+            },
+            {
+                selector: "#tab-4 .row.g-4",
+                products: productList.slice().sort(function (a, b) {
+                    return (b.discount || 0) - (a.discount || 0);
+                }).slice(0, 8)
+            }
+        ];
+
+        sections.forEach(function (section) {
+            var row = $(section.selector).first();
+
+            if (!row.length) {
+                return;
+            }
+
+            row.empty();
+            section.products.forEach(function (product) {
+                row.append(homeProductCardMarkup(product));
+            });
+        });
+    }
+
+    function renderBestsellerProducts(productList) {
+        var row = $(".products-mini h4").filter(function () {
+            return $(this).text().trim() === "Bestseller Products";
+        }).closest(".products-mini").find(".row.g-4").first();
+
+        if (!row.length) {
+            return;
+        }
+
+        row.empty();
+        productList.slice().sort(function (a, b) {
+            if (b.rating !== a.rating) {
+                return b.rating - a.rating;
+            }
+
+            return (b.discount || 0) - (a.discount || 0);
+        }).slice(0, 6).forEach(function (product) {
+            row.append(bestsellerCardMarkup(product));
+        });
     }
 
     function renderHomeProductCarousel(productList) {
@@ -459,9 +664,13 @@
 
         carousel.empty();
 
-        for (var i = 0; i < productList.length; i += 4) {
+        var carouselProducts = productList.slice().sort(function (a, b) {
+            return (b.discount || 0) - (a.discount || 0);
+        }).slice(0, 24);
+
+        for (var i = 0; i < carouselProducts.length; i += 4) {
             var group = $('<div class="productImg-carousel owl-carousel productList-item"></div>');
-            productList.slice(i, i + 4).forEach(function (product) {
+            carouselProducts.slice(i, i + 4).forEach(function (product) {
                 group.append(productMiniMarkup(product));
             });
             carousel.append(group);
@@ -772,7 +981,10 @@
             });
         } else if ($(".productList-carousel").length) {
             loadShopProducts().then(function (productList) {
+                renderHomeHighlights(productList);
+                renderHomeProductTabs(productList);
                 renderHomeProductCarousel(productList);
+                renderBestsellerProducts(productList);
                 linkProductCards();
             });
         } else {
