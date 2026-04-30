@@ -978,6 +978,8 @@
                 updateCategoryControls(productList);
                 linkProductCards();
                 initShopFilters();
+            }).catch(function () {
+                linkProductCards();
             });
         } else if ($(".productList-carousel").length) {
             loadShopProducts().then(function (productList) {
@@ -986,6 +988,8 @@
                 renderHomeProductCarousel(productList);
                 renderBestsellerProducts(productList);
                 linkProductCards();
+            }).catch(function () {
+                linkProductCards();
             });
         } else {
             linkProductCards();
@@ -993,21 +997,23 @@
 
         if ($(".single-product").length) {
             var requestedId = new URLSearchParams(window.location.search).get("id") || "1";
-            loadSingleProduct(requestedId).then(renderSingleProduct);
+            loadSingleProduct(requestedId).then(renderSingleProduct).catch(function () {
+                renderSingleProduct(normalizeProduct(products["product-4"]));
+            });
         }
     }
-
-    initProducts();
 
     // Spinner
     var spinner = function () {
         setTimeout(function () {
             if ($('#spinner').length > 0) {
-                $('#spinner').removeClass('show');
+                $('#spinner').removeClass('show').remove();
             }
         }, 1);
     };
     spinner(0);
+
+    initProducts();
     
     
     // Initiate the wowjs
