@@ -302,12 +302,19 @@
         });
     }
 
-    function loadShopProducts() {
-        return fetchJson(dummyApiBase + "?limit=0").then(function (response) {
+    function loadShopProducts(limit) {
+        var safeLimit = Number(limit) > 0 ? Number(limit) : 0;
+        var requestUrl = safeLimit ? (dummyApiBase + "?limit=" + safeLimit) : (dummyApiBase + "?limit=0");
+
+        return fetchJson(requestUrl).then(function (response) {
             var items = response.products || [];
 
             if (!items.length) {
                 throw new Error("No API products returned");
+            }
+
+            if (safeLimit) {
+                items = items.slice(0, safeLimit);
             }
 
             setProducts(items);
@@ -316,6 +323,9 @@
             });
         }).catch(function () {
             var fallback = getFallbackProducts();
+            if (safeLimit) {
+                fallback = fallback.slice(0, safeLimit);
+            }
             setProducts(fallback);
             return fallback;
         });
@@ -972,8 +982,10 @@
     }
 
     function initProducts() {
+        var SHOP_PAGE_PRODUCT_LIMIT = 12;
+
         if ($("#tab-5 .row.product").length) {
-            loadShopProducts().then(function (productList) {
+            loadShopProducts(SHOP_PAGE_PRODUCT_LIMIT).then(function (productList) {
                 renderShopProducts(productList);
                 updateCategoryControls(productList);
                 linkProductCards();
