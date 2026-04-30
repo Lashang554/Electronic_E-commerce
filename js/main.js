@@ -351,6 +351,37 @@
         return stars;
     }
 
+    function formatReviewDate(value) {
+        if (!value) {
+            return "Recent review";
+        }
+
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+            return "Recent review";
+        }
+
+        return date.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        });
+    }
+
+    function reviewMarkup(review) {
+        return '<div class="d-flex mb-4">' +
+            '<img src="img/avatar.jpg" class="img-fluid rounded-circle p-3" style="width: 100px; height: 100px;" alt="' + escapeHtml(review.reviewerName || "Reviewer") + '">' +
+            '<div>' +
+            '<p class="mb-2" style="font-size: 14px;">' + escapeHtml(formatReviewDate(review.date)) + '</p>' +
+            '<div class="d-flex justify-content-between">' +
+            '<h5>' + escapeHtml(review.reviewerName || "Anonymous") + '</h5>' +
+            '<div class="d-flex mb-3">' + starMarkup(Math.round(Number(review.rating || 0))) + '</div>' +
+            '</div>' +
+            '<p class="text-dark mb-0">' + escapeHtml(review.comment || "No review comment available.") + '</p>' +
+            '</div>' +
+            '</div>';
+    }
+
     function productCardMarkup(product) {
         var name = escapeHtml(product.name);
         var category = escapeHtml(product.category);
@@ -978,7 +1009,18 @@
         $(".single-product small strong").first().text(product.stock + " items in stock");
         $(".single-product .col-xl-6").eq(1).find("p.mb-4").eq(0).text(product.description);
         $(".single-product .col-xl-6").eq(1).find("p.mb-4").eq(1).text(product.details || "Product data loaded from DummyJSON.");
-        $("#nav-about p").first().html(product.description + " <b class=\"fw-bold\">" + product.name + "</b> is loaded from DummyJSON using the product ID in the page URL.");
+        $("#nav-about").html(
+            '<p class="text-dark mb-0">' +
+            escapeHtml(product.description || "No product description available.") +
+            '</p>'
+        );
+
+        var reviews = Array.isArray(product.reviews) ? product.reviews : [];
+        if (reviews.length) {
+            $("#nav-mission").html(reviews.map(reviewMarkup).join(""));
+        } else {
+            $("#nav-mission").html('<p class="text-dark mb-0">No reviews available for this product from DummyJSON.</p>');
+        }
     }
 
     function initProducts() {
