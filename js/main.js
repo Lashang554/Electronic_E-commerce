@@ -296,6 +296,23 @@
         });
     }
 
+    function buildShopSearchUrl(query, limit) {
+        var params = new URLSearchParams();
+        params.set("q", String(query || ""));
+        if (Number(limit) > 0) {
+            params.set("limit", String(Number(limit)));
+        }
+        return dummyApiBase + "/search?" + params.toString();
+    }
+
+    function buildShopPageUrl(query) {
+        var keyword = String(query || "").trim();
+        if (!keyword) {
+            return "shop.html";
+        }
+        return "shop.html?q=" + encodeURIComponent(keyword);
+    }
+
     function getFallbackProducts() {
         return Object.keys(products).map(function (id) {
             return normalizeProduct($.extend({ id: id }, products[id]));
@@ -328,6 +345,23 @@
             }
             setProducts(fallback);
             return fallback;
+        });
+    }
+
+    function searchShopProducts(query, limit) {
+        var keyword = String(query || "").trim();
+        var safeLimit = Number(limit) > 0 ? Number(limit) : 12;
+
+        if (!keyword) {
+            return Promise.resolve([]);
+        }
+
+        return fetchJson(buildShopSearchUrl(keyword, safeLimit)).then(function (response) {
+            var items = (response.products || []).slice(0, safeLimit);
+            setProducts(items);
+            return Object.keys(products).map(function (id) {
+                return products[id];
+            });
         });
     }
 
@@ -839,15 +873,25 @@
         var categoryRadios = $(".additional-product input[type='radio']");
         var gridEmptyMessage = $('<div class="col-12 shop-empty-message d-none"><div class="alert alert-light border text-center mb-0">No products found. Try another search or filter.</div></div>');
         var listEmptyMessage = gridEmptyMessage.clone();
+        var SEARCH_API_RESULT_LIMIT = 12;
+        var searchRequestToken = 0;
+        var initialProductList = Object.keys(products).map(function (id) {
+            return products[id];
+        });
+        var initialQuery = String(new URLSearchParams(window.location.search).get("q") || "").trim();
 
-        grid.children().each(function (index) {
-            $(this).attr("data-original-index", index);
-        });
-        list.children().each(function (index) {
-            $(this).attr("data-original-index", index);
-        });
-        grid.append(gridEmptyMessage);
-        list.append(listEmptyMessage);
+        function prepareRenderedItems() {
+            grid.children().each(function (index) {
+                $(this).attr("data-original-index", index);
+            });
+            list.children().each(function (index) {
+                $(this).attr("data-original-index", index);
+            });
+            grid.append(gridEmptyMessage);
+            list.append(listEmptyMessage);
+        }
+
+        prepareRenderedItems();
         priceInput.attr({
             min: 0,
             max: Math.ceil(maxCatalogPrice),
@@ -929,10 +973,71 @@
             grid.find(".pagination").closest(".col-12").toggle(gridCount !== 0);
         }
 
+        function resetCategorySelection() {
+            state.category = "all";
+            categoryLinks.removeClass("text-primary").addClass("text-dark");
+            categoryRadios.prop("checked", false);
+        }
+
+        function renderShopDataset(productList) {
+            renderShopProducts(productList);
+            updateCategoryControls(productList);
+            linkProductCards();
+            prepareRenderedItems();
+            applyFilters();
+        }
+
+        var debouncedRemoteSearch = (function () {
+            var timer = null;
+
+            return function (query) {
+                if (timer) {
+                    clearTimeout(timer);
+                }
+
+                timer = setTimeout(function () {
+                    var keyword = String(query || "").trim();
+                    var currentToken = ++searchRequestToken;
+
+                    if (!keyword) {
+                        renderShopDataset(initialProductList);
+                        return;
+                    }
+
+                    if (keyword.length < 2) {
+                        state.search = keyword.toLowerCase();
+                        applyFilters();
+                        return;
+                    }
+
+                    searchShopProducts(keyword, SEARCH_API_RESULT_LIMIT).then(function (results) {
+                        if (currentToken !== searchRequestToken) {
+                            return;
+                        }
+
+                        resetCategorySelection();
+                        renderShopDataset(results);
+                    }).catch(function () {
+                        if (currentToken !== searchRequestToken) {
+                            return;
+                        }
+                        state.search = keyword.toLowerCase();
+                        applyFilters();
+                    });
+                }, 350);
+            };
+        })();
+
         searchInput.on("input", function () {
             state.search = $(this).val().trim().toLowerCase();
-            applyFilters();
+            debouncedRemoteSearch(state.search);
         });
+
+        if (initialQuery) {
+            searchInput.val(initialQuery);
+            state.search = initialQuery.toLowerCase();
+            debouncedRemoteSearch(initialQuery);
+        }
 
         priceInput.on("input change", function () {
             state.maxPrice = Number($(this).val());
@@ -965,6 +1070,69 @@
         });
 
         applyFilters();
+    }
+
+    function initGlobalSearch() {
+        var currentPath = window.location.pathname.split("/").pop() || "";
+        var isShopPage = currentPath === "shop.html";
+
+        $(".container-fluid.px-5.py-4 .d-flex.border.rounded-pill").each(function () {
+            var wrapper = $(this);
+            var input = wrapper.find("input[type='text']").first();
+            var trigger = wrapper.find("button").first();
+
+            if (!input.length || !trigger.length) {
+                return;
+            }
+
+            function submitHeaderSearch() {
+                var keyword = input.val();
+                if (String(keyword || "").trim()) {
+                    window.location.href = buildShopPageUrl(keyword);
+                } else if (!isShopPage) {
+                    window.location.href = "shop.html";
+                }
+            }
+
+            trigger.off("click.globalSearch").on("click.globalSearch", function (event) {
+                event.preventDefault();
+                submitHeaderSearch();
+            });
+
+            input.off("keydown.globalSearch").on("keydown.globalSearch", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitHeaderSearch();
+                }
+            });
+        });
+
+        $(".shop .input-group input[type='search']").each(function () {
+            var input = $(this);
+            var group = input.closest(".input-group");
+            var trigger = group.find(".input-group-text, button").first();
+
+            function submitSidebarSearch() {
+                var keyword = input.val();
+                if (String(keyword || "").trim()) {
+                    window.location.href = buildShopPageUrl(keyword);
+                } else if (!isShopPage) {
+                    window.location.href = "shop.html";
+                }
+            }
+
+            input.off("keydown.globalSearch").on("keydown.globalSearch", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitSidebarSearch();
+                }
+            });
+
+            trigger.off("click.globalSearch").on("click.globalSearch", function (event) {
+                event.preventDefault();
+                submitSidebarSearch();
+            });
+        });
     }
 
     function renderSingleProduct(product) {
@@ -1068,6 +1236,7 @@
     spinner(0);
 
     initProducts();
+    initGlobalSearch();
     
     
     // Initiate the wowjs
