@@ -37,6 +37,29 @@
     z-index: 99;
 }
 
+.cart-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 90px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+}
+
+.cart-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.cart-item-img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    background: var(--bs-light);
+}
+
 /*** Button Start ***/
 .btn {
     font-weight: 600;

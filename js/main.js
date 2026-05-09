@@ -2,6 +2,7 @@
     "use strict";
 
     var dummyApiBase = "https://dummyjson.com/products";
+    var CART_STORAGE_KEY = "electroCartItems";
     var products = {
         "product-3": {
             name: "Apple iPad Mini G2356",
@@ -1215,6 +1216,189 @@
         });
     }
 
+    function readCartItems() {
+        try {
+            return JSON.parse(localStorage.getItem(CART_STORAGE_KEY)) || [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function saveCartItems(items) {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    }
+
+    function cartTotals(items) {
+        return items.reduce(function (summary, item) {
+            var quantity = Math.max(Number(item.quantity || 1), 1);
+            var price = Number(item.rawPrice || parsePrice(item.price));
+
+            summary.count += quantity;
+            summary.subtotal += price * quantity;
+            return summary;
+        }, {
+            count: 0,
+            subtotal: 0
+        });
+    }
+
+    function updateCartSummary() {
+        var totals = cartTotals(readCartItems());
+
+        $("a[href='cart.html']").each(function () {
+            var link = $(this);
+            var amount = link.find(".text-dark.ms-2").first();
+
+            if (amount.length) {
+                amount.text(formatPrice(totals.subtotal));
+            }
+
+            link.attr("title", totals.count + " item" + (totals.count === 1 ? "" : "s") + " in cart");
+        });
+    }
+
+    function showCartNotice(productName) {
+        var notice = $(".cart-toast");
+
+        if (!notice.length) {
+            notice = $('<div class="cart-toast alert alert-success shadow-sm mb-0" role="status" aria-live="polite"></div>');
+            $("body").append(notice);
+        }
+
+        notice.text(productName + " added to cart").addClass("show");
+        clearTimeout(notice.data("timer"));
+        notice.data("timer", setTimeout(function () {
+            notice.removeClass("show");
+        }, 2200));
+    }
+
+    function findProductForAction(button) {
+        var productId = button.closest("[data-product-id]").attr("data-product-id") ||
+            $(".single-product").attr("data-product-id") ||
+            getProductIdFromImage(button.closest(".product-item, .products-mini-item, .related-item, .single-product").find("img[src*='product-']").first().attr("src"));
+
+        return products[productId] ? normalizeProduct($.extend({ id: productId }, products[productId])) : null;
+    }
+
+    function addProductToCart(product, quantity) {
+        var items = readCartItems();
+        var existing = items.find(function (item) {
+            return item.id === product.id;
+        });
+        var amount = Math.max(Number(quantity || 1), 1);
+
+        if (existing) {
+            existing.quantity += amount;
+        } else {
+            items.push({
+                id: product.id,
+                name: product.name,
+                category: product.category,
+                price: product.price,
+                rawPrice: product.rawPrice || parsePrice(product.price),
+                image: product.image,
+                sku: product.sku,
+                quantity: amount
+            });
+        }
+
+        saveCartItems(items);
+        updateCartSummary();
+        showCartNotice(product.name);
+    }
+
+    function renderCartPage() {
+        var table = $(".table-responsive table");
+
+        if (!table.length || !$(".page-header h1").first().text().match(/Cart/)) {
+            return;
+        }
+
+        var body = table.find("tbody");
+        var items = readCartItems();
+        var totals = cartTotals(items);
+        var shipping = totals.subtotal > 0 ? 3 : 0;
+
+        if (!items.length) {
+            body.html('<tr><td colspan="6"><div class="alert alert-light border text-center mb-0">Your cart is empty. Browse the shop to add your favorite electronics.</div></td></tr>');
+        } else {
+            body.html(items.map(function (item) {
+                var quantity = Math.max(Number(item.quantity || 1), 1);
+                var price = Number(item.rawPrice || parsePrice(item.price));
+
+                return '<tr data-cart-id="' + escapeHtml(item.id) + '">' +
+                    '<th scope="row"><div class="d-flex align-items-center py-3"><img src="' + escapeHtml(item.image) + '" class="img-fluid rounded me-3 cart-item-img" alt="' + escapeHtml(item.name) + '"><p class="mb-0">' + escapeHtml(item.name) + '</p></div></th>' +
+                    '<td><p class="mb-0 py-4">' + escapeHtml(item.sku || item.category) + '</p></td>' +
+                    '<td><p class="mb-0 py-4">' + formatPrice(price) + '</p></td>' +
+                    '<td><div class="input-group quantity py-4" style="width: 100px;">' +
+                    '<div class="input-group-btn"><button class="btn btn-sm btn-minus rounded-circle bg-light border" type="button"><i class="fa fa-minus"></i></button></div>' +
+                    '<input type="text" class="form-control form-control-sm text-center border-0" value="' + quantity + '">' +
+                    '<div class="input-group-btn"><button class="btn btn-sm btn-plus rounded-circle bg-light border" type="button"><i class="fa fa-plus"></i></button></div>' +
+                    '</div></td>' +
+                    '<td><p class="mb-0 py-4">' + formatPrice(price * quantity) + '</p></td>' +
+                    '<td class="py-4"><button class="btn btn-md rounded-circle bg-light border cart-remove" type="button" aria-label="Remove ' + escapeHtml(item.name) + '"><i class="fa fa-times text-danger"></i></button></td>' +
+                    '</tr>';
+            }).join(""));
+        }
+
+        $(".bg-light.rounded .d-flex.justify-content-between.mb-4 p").first().text(formatPrice(totals.subtotal));
+        $(".bg-light.rounded .d-flex.justify-content-between").eq(1).find("p").first().text(totals.subtotal > 0 ? "Flat rate: " + formatPrice(shipping) : "Free");
+        $(".bg-light.rounded .py-4.border-top p").first().text(formatPrice(totals.subtotal + shipping));
+        $(".bg-light.rounded button").last().prop("disabled", !items.length).toggleClass("disabled", !items.length);
+        initProductMedia();
+    }
+
+    function initCart() {
+        $(document).on("click", "a, button", function (event) {
+            var button = $(this);
+            var label = button.text().trim();
+
+            if (!/add to cart/i.test(label)) {
+                return;
+            }
+
+            var product = findProductForAction(button);
+
+            if (!product) {
+                return;
+            }
+
+            event.preventDefault();
+            addProductToCart(product, $(".single-product .quantity input").first().val());
+        });
+
+        $(document).on("click", ".cart-remove", function () {
+            var id = $(this).closest("[data-cart-id]").attr("data-cart-id");
+            saveCartItems(readCartItems().filter(function (item) {
+                return item.id !== id;
+            }));
+            renderCartPage();
+            updateCartSummary();
+        });
+
+        $(document).on("click change", ".table-responsive [data-cart-id] .quantity button, .table-responsive [data-cart-id] .quantity input", function () {
+            var row = $(this).closest("[data-cart-id]");
+            var id = row.attr("data-cart-id");
+
+            setTimeout(function () {
+                var quantity = Math.max(Number(row.find(".quantity input").val() || 1), 1);
+                var items = readCartItems().map(function (item) {
+                    if (item.id === id) {
+                        item.quantity = quantity;
+                    }
+                    return item;
+                });
+
+                saveCartItems(items);
+                renderCartPage();
+                updateCartSummary();
+            }, 0);
+        });
+
+        updateCartSummary();
+        renderCartPage();
+    }
+
     function renderSingleProduct(product) {
         if (!$(".single-product").length) {
             return;
@@ -1250,6 +1434,7 @@
             ]
         });
         initProductMedia();
+        $(".single-product").attr("data-product-id", product.id);
         $(".single-product h4.fw-bold").first().text(product.name);
         $(".single-product .col-xl-6").eq(1).find("p.mb-3").first().text("Category: " + product.category);
         $(".single-product .col-xl-6").eq(1).find("h5.fw-bold").first().text(product.price);
@@ -1320,6 +1505,7 @@
     initGlobalSearch();
     initNavigationLinks();
     initProductMedia();
+    initCart();
     
     
     // Initiate the wowjs
