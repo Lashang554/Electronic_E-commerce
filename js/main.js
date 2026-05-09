@@ -1135,6 +1135,62 @@
         });
     }
 
+    function initNavigationLinks() {
+        var currentPage = window.location.pathname.split("/").pop() || "index.html";
+        var pageMap = {
+            "": "index.html",
+            "index.html": "index.html",
+            "shop.html": "shop.html",
+            "single.html": "single.html",
+            "bestseller.html": "bestseller.html",
+            "cart.html": "cart.html",
+            "checkout.html": "checkout.html",
+            "contact.html": "contact.html",
+            "404.html": "404.html"
+        };
+
+        currentPage = pageMap[currentPage] || currentPage;
+
+        $(".navbar-brand").attr("href", "index.html");
+        $("a").filter(function () {
+            return $(this).find(".fa-shopping-cart").length && !$(this).closest(".carousel-banner").length;
+        }).attr({
+            href: "cart.html",
+            "aria-label": "View cart"
+        });
+        $("a").filter(function () {
+            return $(this).text().trim() === "Contact";
+        }).attr("href", "contact.html");
+        $("a").filter(function () {
+            return /help|support/i.test($(this).text().trim());
+        }).attr("href", "contact.html");
+        $("a").filter(function () {
+            return $(this).text().trim() === "Wishlist";
+        }).attr("href", "shop.html");
+        $("a").filter(function () {
+            return $(this).text().trim() === "My Cart";
+        }).attr("href", "cart.html");
+        $("a").filter(function () {
+            return $(this).text().trim() === "Notifications";
+        }).attr("href", "contact.html");
+        $("a").filter(function () {
+            return $(this).text().trim() === "Account Settings" || $(this).text().trim() === "My Account";
+        }).attr("href", "contact.html");
+        $("a").filter(function () {
+            return $(this).text().indexOf("+012") !== -1 || $(this).text().indexOf("+0123") !== -1;
+        }).attr("href", "tel:+01234567890");
+
+        $(".navbar-nav .nav-link, .dropdown-menu .dropdown-item").removeClass("active").each(function () {
+            var link = $(this);
+            var href = link.attr("href");
+
+            if (href && href.split("?")[0] === currentPage) {
+                link.addClass("active");
+                link.closest(".dropdown").find("> .nav-link").addClass("active");
+            }
+        });
+    }
+
     function renderSingleProduct(product) {
         if (!$(".single-product").length) {
             return;
@@ -1237,6 +1293,7 @@
 
     initProducts();
     initGlobalSearch();
+    initNavigationLinks();
     
     
     // Initiate the wowjs
