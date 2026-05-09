@@ -1406,6 +1406,7 @@
 
         var carousel = $(".single-carousel");
         var galleryImages = (product.gallery && product.gallery.length ? product.gallery : [product.image]).filter(Boolean);
+        var reviews = Array.isArray(product.reviews) ? product.reviews : [];
         var galleryHtml = galleryImages.map(function (image) {
             return '<div class="single-item" data-dot="<img class=\'img-fluid\' src=\'' + image + '\' alt=\'\'>">' +
                 '<div class="single-inner bg-light rounded">' +
@@ -1414,6 +1415,9 @@
         }).join("");
 
         document.title = product.name + " - Electro";
+        $("meta[name='description']").attr("content", product.description || "View product details, pricing, availability, and reviews at Electro.");
+        $(".page-header h1").first().text(product.name);
+        $(".breadcrumb .active").first().text(product.name);
         if (carousel.hasClass("owl-loaded")) {
             carousel.trigger("destroy.owl.carousel");
             carousel.removeClass("owl-loaded owl-hidden");
@@ -1438,18 +1442,32 @@
         $(".single-product h4.fw-bold").first().text(product.name);
         $(".single-product .col-xl-6").eq(1).find("p.mb-3").first().text("Category: " + product.category);
         $(".single-product .col-xl-6").eq(1).find("h5.fw-bold").first().text(product.price);
-        $(".single-product .col-xl-6").eq(1).find(".d-flex.mb-4").first().html(starMarkup(product.rating));
+        $(".single-product .col-xl-6").eq(1).find(".d-flex.mb-4").first().html(
+            starMarkup(product.rating) + '<span class="ms-3 text-muted">' + reviews.length + ' review' + (reviews.length === 1 ? '' : 's') + '</span>'
+        );
         $(".single-product small").eq(0).text("Product SKU: " + product.sku);
         $(".single-product small strong").first().text(product.stock + " items in stock");
         $(".single-product .col-xl-6").eq(1).find("p.mb-4").eq(0).text(product.description);
         $(".single-product .col-xl-6").eq(1).find("p.mb-4").eq(1).text(product.details || "Product data loaded from DummyJSON.");
+        $(".single-product .quantity input").first().attr({
+            min: 1,
+            max: Math.max(Number(product.stock || 1), 1)
+        }).val(1);
+        $(".single-product a").filter(function () {
+            return /add to cart/i.test($(this).text());
+        }).toggleClass("disabled", !product.stock).attr("aria-disabled", product.stock ? "false" : "true");
         $("#nav-about").html(
-            '<p class="text-dark mb-0">' +
+            '<p class="text-dark">' +
             escapeHtml(product.description || "No product description available.") +
-            '</p>'
+            '</p>' +
+            '<div class="row g-3 mt-2">' +
+            '<div class="col-md-6"><div class="border rounded p-3 h-100"><strong>SKU</strong><p class="mb-0">' + escapeHtml(product.sku || "N/A") + '</p></div></div>' +
+            '<div class="col-md-6"><div class="border rounded p-3 h-100"><strong>Category</strong><p class="mb-0">' + escapeHtml(product.category || "Electronics") + '</p></div></div>' +
+            '<div class="col-md-6"><div class="border rounded p-3 h-100"><strong>Availability</strong><p class="mb-0">' + escapeHtml(String(product.stock || 0)) + ' in stock</p></div></div>' +
+            '<div class="col-md-6"><div class="border rounded p-3 h-100"><strong>Details</strong><p class="mb-0">' + escapeHtml(product.details || "Fast shipping and secure checkout available.") + '</p></div></div>' +
+            '</div>'
         );
 
-        var reviews = Array.isArray(product.reviews) ? product.reviews : [];
         if (reviews.length) {
             $("#nav-mission").html(reviews.map(reviewMarkup).join(""));
         } else {
@@ -1650,6 +1668,11 @@
                 newVal = 0;
             }
         }
+        var maxValue = Number(button.parent().parent().find('input').attr('max'));
+        if (maxValue) {
+            newVal = Math.min(newVal, maxValue);
+        }
+        newVal = Math.max(newVal, 1);
         button.parent().parent().find('input').val(newVal);
     });
 
