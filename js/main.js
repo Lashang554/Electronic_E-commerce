@@ -424,7 +424,7 @@
             '<div class="product-item rounded wow fadeInUp" data-product-id="' + product.id + '">' +
             '<div class="product-item-inner border rounded">' +
             '<div class="product-item-inner-item">' +
-            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + name + '">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + name + '" loading="lazy" decoding="async">' +
             '<div class="product-new">New</div>' +
             '<div class="product-details"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x"></i></a></div>' +
             '</div>' +
@@ -452,7 +452,7 @@
             '<div class="products-mini-item border" data-product-id="' + product.id + '">' +
             '<div class="row g-0">' +
             '<div class="col-5"><div class="products-mini-img border-end h-100">' +
-            '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + name + '">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + name + '" loading="lazy" decoding="async">' +
             '<div class="products-mini-icon rounded-circle bg-primary"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x text-white"></i></a></div>' +
             '</div></div>' +
             '<div class="col-7"><div class="products-mini-content p-3">' +
@@ -478,7 +478,7 @@
         return '<div class="productImg-item products-mini-item border" data-product-id="' + product.id + '">' +
             '<div class="row g-0">' +
             '<div class="col-5"><div class="products-mini-img border-end h-100">' +
-            '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + name + '">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 h-100" alt="' + name + '" loading="lazy" decoding="async">' +
             '<div class="products-mini-icon rounded-circle bg-primary"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x text-white"></i></a></div>' +
             '</div></div>' +
             '<div class="col-7"><div class="products-mini-content p-3">' +
@@ -508,7 +508,7 @@
             '<div class="product-item rounded wow fadeInUp" data-product-id="' + product.id + '">' +
             '<div class="product-item-inner border rounded">' +
             '<div class="product-item-inner-item">' +
-            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + name + '">' +
+            '<img src="' + product.image + '" class="img-fluid w-100 rounded-top" alt="' + name + '" loading="lazy" decoding="async">' +
             badge +
             '<div class="product-details"><a href="' + productUrl(product.id) + '"><i class="fa fa-eye fa-1x"></i></a></div>' +
             '</div>' +
@@ -1191,6 +1191,30 @@
         });
     }
 
+    function initProductMedia() {
+        $("img").each(function () {
+            var image = $(this);
+            var src = image.attr("src") || "";
+
+            if (!image.attr("alt") || image.attr("alt") === "Image") {
+                image.attr("alt", getProductIdFromImage(src) ? "Electro product image" : "Electro store image");
+            }
+
+            if (!image.closest(".header-carousel, .carousel-header-banner").length) {
+                image.attr({
+                    loading: "lazy",
+                    decoding: "async"
+                });
+            }
+        }).off("error.mediaFallback").on("error.mediaFallback", function () {
+            var image = $(this);
+
+            if (image.attr("src") !== "img/product-3.png") {
+                image.attr("src", "img/product-3.png");
+            }
+        });
+    }
+
     function renderSingleProduct(product) {
         if (!$(".single-product").length) {
             return;
@@ -1225,6 +1249,7 @@
                 '<i class="bi bi-arrow-right"></i>'
             ]
         });
+        initProductMedia();
         $(".single-product h4.fw-bold").first().text(product.name);
         $(".single-product .col-xl-6").eq(1).find("p.mb-3").first().text("Category: " + product.category);
         $(".single-product .col-xl-6").eq(1).find("h5.fw-bold").first().text(product.price);
@@ -1294,6 +1319,7 @@
     initProducts();
     initGlobalSearch();
     initNavigationLinks();
+    initProductMedia();
     
     
     // Initiate the wowjs
