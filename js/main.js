@@ -1471,6 +1471,31 @@
         renderCheckoutPage();
     }
 
+    function initContactForm() {
+        $(".contact-form").on("submit", function (event) {
+            event.preventDefault();
+
+            var form = $(this);
+            var status = form.find(".contact-form-status");
+            var message = {
+                name: form.find("#name").val(),
+                email: form.find("#email").val(),
+                phone: form.find("#phone").val(),
+                project: form.find("#project").val(),
+                subject: form.find("#subject").val(),
+                body: form.find("#message").val(),
+                createdAt: new Date().toISOString()
+            };
+
+            localStorage.setItem("electroLastContactMessage", JSON.stringify(message));
+            status
+                .removeClass("d-none alert-danger")
+                .addClass("alert-success")
+                .text("Thanks, " + (message.name || "there") + ". Your message has been saved for review.");
+            this.reset();
+        });
+    }
+
     function renderSingleProduct(product) {
         if (!$(".single-product").length) {
             return;
@@ -1596,6 +1621,7 @@
     initNavigationLinks();
     initProductMedia();
     initCart();
+    initContactForm();
     
     
     // Initiate the wowjs
