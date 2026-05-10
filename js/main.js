@@ -1496,6 +1496,43 @@
         });
     }
 
+    function initNewsletterForms() {
+        $(".footer .position-relative").each(function () {
+            var wrapper = $(this);
+            var input = wrapper.find("input").first();
+            var button = wrapper.find("button").first();
+
+            if (!input.length || !button.length) {
+                return;
+            }
+
+            input.attr({
+                type: "email",
+                placeholder: "Your email"
+            });
+            button.attr("type", "button");
+
+            button.off("click.newsletter").on("click.newsletter", function () {
+                var email = input.val().trim();
+                var status = wrapper.next(".newsletter-status");
+
+                if (!status.length) {
+                    status = $('<p class="newsletter-status small mt-2 mb-0"></p>');
+                    wrapper.after(status);
+                }
+
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    status.removeClass("text-success").addClass("text-warning").text("Enter a valid email address.");
+                    return;
+                }
+
+                localStorage.setItem("electroNewsletterEmail", email);
+                input.val("");
+                status.removeClass("text-warning").addClass("text-success").text("Thanks for subscribing.");
+            });
+        });
+    }
+
     function renderSingleProduct(product) {
         if (!$(".single-product").length) {
             return;
@@ -1622,6 +1659,7 @@
     initProductMedia();
     initCart();
     initContactForm();
+    initNewsletterForms();
     
     
     // Initiate the wowjs
