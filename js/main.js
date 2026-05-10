@@ -1348,6 +1348,48 @@
         initProductMedia();
     }
 
+    function renderCheckoutPage() {
+        var heading = $(".page-header h1").first().text();
+        var table = $(".checkout .table-responsive table");
+
+        if (!table.length || !/Checkout/.test(heading)) {
+            return;
+        }
+
+        var body = table.find("tbody");
+        var items = readCartItems();
+        var totals = cartTotals(items);
+        var shipping = totals.subtotal > 0 ? 15 : 0;
+
+        if (!items.length) {
+            body.html('<tr><td colspan="5"><div class="alert alert-light border text-center mb-0">Your checkout is empty. Add products from the shop before placing an order.</div></td></tr>');
+            $(".checkout button").filter(function () {
+                return /place order/i.test($(this).text());
+            }).prop("disabled", true).addClass("disabled");
+            return;
+        }
+
+        body.html(items.map(function (item) {
+            var quantity = Math.max(Number(item.quantity || 1), 1);
+            var price = Number(item.rawPrice || parsePrice(item.price));
+
+            return '<tr class="text-center">' +
+                '<th scope="row" class="text-start py-4">' + escapeHtml(item.name) + '</th>' +
+                '<td class="py-4">' + escapeHtml(item.sku || item.category) + '</td>' +
+                '<td class="py-4">' + formatPrice(price) + '</td>' +
+                '<td class="py-4">' + quantity + '</td>' +
+                '<td class="py-4">' + formatPrice(price * quantity) + '</td>' +
+                '</tr>';
+        }).join("") +
+            '<tr><th scope="row"></th><td class="py-4"></td><td class="py-4"></td><td class="py-4"><p class="mb-0 text-dark py-2">Subtotal</p></td><td class="py-4"><div class="py-2 text-center border-bottom border-top"><p class="mb-0 text-dark">' + formatPrice(totals.subtotal) + '</p></div></td></tr>' +
+            '<tr><th scope="row"></th><td class="py-4"><p class="mb-0 text-dark py-4">Shipping</p></td><td colspan="3" class="py-4"><div class="form-check text-start"><input type="radio" class="form-check-input bg-primary border-0" id="Shipping-1" name="Shipping-1" value="free"><label class="form-check-label" for="Shipping-1">Free Shipping</label></div><div class="form-check text-start"><input type="radio" class="form-check-input bg-primary border-0" id="Shipping-2" name="Shipping-1" value="flat" checked><label class="form-check-label" for="Shipping-2">Flat rate: ' + formatPrice(shipping) + '</label></div><div class="form-check text-start"><input type="radio" class="form-check-input bg-primary border-0" id="Shipping-3" name="Shipping-1" value="pickup"><label class="form-check-label" for="Shipping-3">Local Pickup: ' + formatPrice(8) + '</label></div></td></tr>' +
+            '<tr><th scope="row"></th><td class="py-4"><p class="mb-0 text-dark text-uppercase py-2">TOTAL</p></td><td class="py-4"></td><td class="py-4"></td><td class="py-4"><div class="py-2 text-center border-bottom border-top"><p class="mb-0 text-dark">' + formatPrice(totals.subtotal + shipping) + '</p></div></td></tr>');
+
+        $(".checkout button").filter(function () {
+            return /place order/i.test($(this).text());
+        }).prop("disabled", false).removeClass("disabled");
+    }
+
     function initCart() {
         $(document).on("click", "a, button", function (event) {
             var button = $(this);
@@ -1397,6 +1439,7 @@
 
         updateCartSummary();
         renderCartPage();
+        renderCheckoutPage();
     }
 
     function renderSingleProduct(product) {
