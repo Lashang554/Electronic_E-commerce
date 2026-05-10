@@ -78,6 +78,12 @@
     background: var(--bs-light);
 }
 
+a.is-saved .btn-sm-square,
+a.is-saved .btn-md-square {
+    background: var(--bs-primary);
+    color: var(--bs-white);
+}
+
 /*** Button Start ***/
 .btn {
     font-weight: 600;

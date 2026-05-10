@@ -3,6 +3,8 @@
 
     var dummyApiBase = "https://dummyjson.com/products";
     var CART_STORAGE_KEY = "electroCartItems";
+    var WISHLIST_STORAGE_KEY = "electroWishlistItems";
+    var COMPARE_STORAGE_KEY = "electroCompareItems";
     var products = {
         "product-3": {
             name: "Apple iPad Mini G2356",
@@ -1224,6 +1226,18 @@
         }
     }
 
+    function readSavedIds(key) {
+        try {
+            return JSON.parse(localStorage.getItem(key)) || [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function saveIds(key, ids) {
+        localStorage.setItem(key, JSON.stringify(ids));
+    }
+
     function saveCartItems(items) {
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
     }
@@ -1533,6 +1547,62 @@
         });
     }
 
+    function toggleSavedProduct(key, product, actionName) {
+        var ids = readSavedIds(key);
+        var index = ids.indexOf(product.id);
+        var added = index === -1;
+
+        if (added) {
+            ids.push(product.id);
+        } else {
+            ids.splice(index, 1);
+        }
+
+        saveIds(key, ids);
+        showCartNotice(product.name + (added ? " added to " : " removed from ") + actionName);
+        updateSavedProductButtons();
+    }
+
+    function updateSavedProductButtons() {
+        var wishlist = readSavedIds(WISHLIST_STORAGE_KEY);
+        var compare = readSavedIds(COMPARE_STORAGE_KEY);
+
+        $(".product-item, .products-mini-item, .related-item").each(function () {
+            var card = $(this);
+            var productId = card.attr("data-product-id");
+
+            card.find(".fa-heart").closest("a").toggleClass("is-saved", wishlist.indexOf(productId) !== -1);
+            card.find(".fa-random").closest("a").toggleClass("is-saved", compare.indexOf(productId) !== -1);
+        });
+
+        $("a").filter(function () {
+            return $(this).children(".rounded-circle").find(".fa-heart").length && !$(this).closest("[data-product-id]").length;
+        }).attr("title", wishlist.length + " saved item" + (wishlist.length === 1 ? "" : "s"));
+        $("a").filter(function () {
+            return $(this).children(".rounded-circle").find(".fa-random").length && !$(this).closest("[data-product-id]").length;
+        }).attr("title", compare.length + " compare item" + (compare.length === 1 ? "" : "s"));
+    }
+
+    function initSavedProductActions() {
+        $(document).on("click", "[data-product-id] .fa-heart, [data-product-id] .fa-random", function (event) {
+            var icon = $(this);
+            var product = findProductForAction(icon.closest("a, button"));
+
+            if (!product) {
+                return;
+            }
+
+            event.preventDefault();
+            if (icon.hasClass("fa-heart")) {
+                toggleSavedProduct(WISHLIST_STORAGE_KEY, product, "wishlist");
+            } else {
+                toggleSavedProduct(COMPARE_STORAGE_KEY, product, "compare");
+            }
+        });
+
+        updateSavedProductButtons();
+    }
+
     function renderSingleProduct(product) {
         if (!$(".single-product").length) {
             return;
@@ -1660,6 +1730,7 @@
     initCart();
     initContactForm();
     initNewsletterForms();
+    initSavedProductActions();
     
     
     // Initiate the wowjs
