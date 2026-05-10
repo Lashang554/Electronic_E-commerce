@@ -1418,6 +1418,35 @@
             updateCartSummary();
         });
 
+        $(document).on("click", "button", function (event) {
+            var button = $(this);
+            var label = button.text().trim();
+
+            if (/proceed checkout/i.test(label)) {
+                event.preventDefault();
+                window.location.href = "checkout.html";
+            }
+
+            if (/place order/i.test(label)) {
+                event.preventDefault();
+
+                if (!readCartItems().length) {
+                    showCartNotice("Add a product before placing an order");
+                    return;
+                }
+
+                localStorage.setItem("electroLastOrder", JSON.stringify({
+                    orderNumber: "EL-" + Date.now().toString().slice(-6),
+                    items: readCartItems(),
+                    createdAt: new Date().toISOString()
+                }));
+                saveCartItems([]);
+                updateCartSummary();
+                renderCheckoutPage();
+                showCartNotice("Order placed successfully");
+            }
+        });
+
         $(document).on("click change", ".table-responsive [data-cart-id] .quantity button, .table-responsive [data-cart-id] .quantity input", function () {
             var row = $(this).closest("[data-cart-id]");
             var id = row.attr("data-cart-id");
